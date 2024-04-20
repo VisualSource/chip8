@@ -6,6 +6,7 @@ pub const VIDEO_HEIGHT: usize = 32;
 
 const MEMORY_SIZE: usize = 4096; // 4KB memory
 const REGISTER_SIZE: usize = 16;
+const FLAGS_SIZE: usize = 16;
 const KEYPAD_SIZE: usize = 16;
 const STACK_SIZE: usize = 16;
 
@@ -36,6 +37,7 @@ const FONTSET: [u8; FONTSET_SIZE] = [
 pub struct Chip8 {
     register: [u8; REGISTER_SIZE],
     memory: [u8; MEMORY_SIZE],
+    flags: [u8; FLAGS_SIZE],
     index: u16,
     /// Program Counter
     ///
@@ -77,6 +79,7 @@ impl Default for Chip8 {
             memory,
             pc: START_ADDRESS,
             video: [0u32; VIDEO_WIDTH * VIDEO_HEIGHT],
+            flags: [0u8; FLAGS_SIZE],
             delay_timer: 0,
             register: [0u8; REGISTER_SIZE],
             sound_timer: 0,
@@ -575,6 +578,42 @@ impl Chip8 {
             self.register[i] = self.memory[(self.index as usize) + i];
         }
     }
+
+    // Octo Extensions
+
+    /// save an inclusive range of registers to memory starting at i
+    fn op_5xy2(&mut self, opcode: u16) {}
+    /// load an inclusive range of registers from memory starting at i.
+    fn op_5xy3(&mut self, opcode: u16) {}
+    /// save v0-vn to flag registers. (generalizing SCHIP).
+    fn op_fn75(&mut self, opcode: u16) {}
+    /// restore v0-vn from flag registers. (generalizing SCHIP).
+    fn op_fn85(&mut self, opcode: u16) {}
+
+    /// load i with a 16-bit address.
+    ///
+    /// i := long NNNN (0xF000, 0xNNNN)
+    fn op_f000(&mut self, opcode: u16) {
+        // fn op_nnnn(&mut self, opcode: u16){}
+    }
+    /// select zero or more drawing planes by bitmask (0 <= n <= 3).
+    fn op_fn01(&mut self, opcode: u16) {}
+    /// store 16 bytes starting at i in the audio pattern buffer.
+    fn op_fnn2(&mut self, opcode: u16) {}
+    /// set the audio pattern playback rate to 4000*2^((vx-64)/48)Hz.
+    fn op_fx3a(&mut self, opcode: u16) {}
+    /// scroll up the contents of the display up by 0-15 pixels.
+    fn op_00dn(&mut self, opcode: u16) {}
+
+    // SuperChip8 Extention
+
+    /// Scroll display N lines down
+    fn op_00cn(&mut self, opcode: u16) {}
+
+    /// Scroll display 4 pixels right
+    fn op_00fb(&mut self) {}
+    /// Scroll display 4 pixels left
+    fn op_00fc(&mut self) {}
 }
 
 #[cfg(test)]
