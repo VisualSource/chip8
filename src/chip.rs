@@ -219,16 +219,35 @@ impl Chip8 {
     fn table(&mut self, opcode: u16) {
         let part = (opcode & 0xF000) >> 12;
         match part {
-            0x0 => match opcode & 0x000F {
-                0x0 => self.op_00_e0(),
-                0xE => self.op_00_ee(),
-                _ => println!("[Table 00] Unknown opcode: {:#04x}", opcode),
-            },
+            0x0 => {
+                match opcode & 0x00F0 {
+                    0xD0 => return self.op_00dn(opcode),
+                    0xC0 => return self.op_00cn(opcode),
+                    _ => {}
+                }
+
+                match opcode & 0x000F {
+                    0x0 => self.op_00_e0(),
+                    0xE => self.op_00_ee(),
+                    _ => {}
+                }
+
+                match opcode & 0x00FF {
+                    0xFB => self.op_00fb(),
+                    0xFC => self.op_00fc(),
+                    _ => println!("[Table 00] Unknown opcode: {:#04x}", opcode),
+                }
+            }
             0x1 => self.op_1nnn(opcode),
             0x2 => self.op_2nnn(opcode),
             0x3 => self.op_3xnn(opcode),
             0x4 => self.op_4xnn(opcode),
-            0x5 => self.op_5xyo(opcode),
+            0x5 => match opcode & 0x000F {
+                0x0 => self.op_5xyo(opcode),
+                0x2 => self.op_5xy2(opcode),
+                0x3 => self.op_5xy3(opcode),
+                _ => println!("[Table 5] Unknown opcode: {:#04x}", opcode),
+            },
             0x6 => self.op_6nnn(opcode),
             0x7 => self.op_7xnn(opcode),
             0x8 => match opcode & 0x000F {
@@ -254,6 +273,8 @@ impl Chip8 {
                 _ => println!("[Table E] Unknown opcode: {:#04x}", opcode),
             },
             0xF => match opcode & 0x00FF {
+                0x00 => self.op_f000(opcode),
+                0x01 => self.op_fn01(opcode),
                 0x07 => self.op_fx07(opcode),
                 0x0A => self.op_fx0a(opcode),
                 0x15 => self.op_fx15(opcode),
@@ -263,6 +284,9 @@ impl Chip8 {
                 0x33 => self.op_fx33(opcode),
                 0x55 => self.op_fx55(opcode),
                 0x65 => self.op_fx65(opcode),
+                0x75 => self.op_fn75(opcode),
+                0x85 => self.op_fn85(opcode),
+                0x3A => self.op_fx3a(opcode),
                 _ => println!("[Table F] Unknown opcode: {:#04x}", opcode),
             },
             _ => println!("Unknown opcode: {:#04x}", opcode),
