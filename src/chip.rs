@@ -38,6 +38,7 @@ pub struct Chip8 {
     register: [u8; REGISTER_SIZE],
     memory: [u8; MEMORY_SIZE],
     flags: [u8; FLAGS_SIZE],
+    /// 16 bit index register
     index: u16,
     /// Program Counter
     ///
@@ -273,7 +274,7 @@ impl Chip8 {
                 _ => println!("[Table E] Unknown opcode: {:#04x}", opcode),
             },
             0xF => match opcode & 0x00FF {
-                0x00 => self.op_f000(opcode),
+                0x00 => self.op_f000(),
                 0x01 => self.op_fn01(opcode),
                 0x07 => self.op_fx07(opcode),
                 0x0A => self.op_fx0a(opcode),
@@ -606,19 +607,53 @@ impl Chip8 {
     // Octo Extensions
 
     /// save an inclusive range of registers to memory starting at i
-    fn op_5xy2(&mut self, opcode: u16) {}
+    fn op_5xy2(&mut self, opcode: u16) {
+        let x = ((opcode & 0x0F00) >> 8) as usize;
+        let y = ((opcode & 0x00F0) >> 4) as usize;
+
+        if x < y {
+            for (i, r) in (x..=y).enumerate() {
+                self.memory[(self.index as usize) + i] = self.register[r];
+            }
+        } else {
+            for (i, r) in (y..=x).rev().enumerate() {
+                self.memory[(self.index as usize) + i] = self.register[r];
+            }
+        }
+    }
     /// load an inclusive range of registers from memory starting at i.
-    fn op_5xy3(&mut self, opcode: u16) {}
+    fn op_5xy3(&mut self, opcode: u16) {
+        let x = ((opcode & 0x0F00) >> 8) as usize;
+        let y = ((opcode & 0x00F0) >> 4) as usize;
+
+        for (i, r) in (x..=y).enumerate() {
+            self.register[r] = self.memory[(self.index as usize) + i];
+        }
+    }
     /// save v0-vn to flag registers. (generalizing SCHIP).
-    fn op_fn75(&mut self, opcode: u16) {}
+    fn op_fn75(&mut self, opcode: u16) {
+        let v = ((opcode & 0x0F00) >> 8) as usize;
+
+        for r in 0..=v {
+            self.flags[r] = self.register[r];
+        }
+    }
     /// restore v0-vn from flag registers. (generalizing SCHIP).
-    fn op_fn85(&mut self, opcode: u16) {}
+    fn op_fn85(&mut self, opcode: u16) {
+        let v = ((opcode & 0x0F00) >> 8) as usize;
+
+        for r in 0..=v {
+            self.register[r] = self.flags[r];
+        }
+    }
 
     /// load i with a 16-bit address.
     ///
     /// i := long NNNN (0xF000, 0xNNNN)
-    fn op_f000(&mut self, opcode: u16) {
-        // fn op_nnnn(&mut self, opcode: u16){}
+    fn op_f000(&mut self) {
+        self.index = ((self.memory[self.pc as usize] as u16) << 8)
+            | self.memory[(self.pc as usize) + 1] as u16;
+        self.pc += 2;
     }
     /// select zero or more drawing planes by bitmask (0 <= n <= 3).
     fn op_fn01(&mut self, opcode: u16) {}
@@ -646,6 +681,104 @@ mod tests {
 
     fn init_chip() -> Chip8 {
         Chip8::default()
+    }
+
+    #[test]
+    fn test_op_f000() {
+        let mut chip = init_chip();
+
+        chip.memory[START_ADDRESS as usize] = 0xf0;
+        chip.memory[(START_ADDRESS as usize) + 1] = 0x00;
+
+        chip.memory[(START_ADDRESS as usize) + 2] = 0xFF;
+        chip.memory[(START_ADDRESS as usize) + 3] = 0xFF;
+
+        chip.pc += 2;
+
+        chip.op_f000();
+
+        assert_eq!(chip.index, 0xFFFF);
+        assert_eq!(chip.pc, START_ADDRESS + 4);
+    }
+
+    #[test]
+    fn test_op_fn85() {
+        let mut chip = init_chip();
+
+        chip.flags[0] = 3;
+        chip.flags[1] = 4;
+        chip.flags[2] = 8;
+
+        chip.op_fn85(0xF285);
+
+        assert_eq!(chip.register[0], 3);
+        assert_eq!(chip.register[1], 4);
+        assert_eq!(chip.register[2], 8);
+    }
+
+    #[test]
+    fn test_op_fn75() {
+        let mut chip = init_chip();
+
+        chip.register[0] = 1;
+        chip.register[1] = 2;
+        chip.register[2] = 5;
+
+        chip.op_fn75(0xF275);
+
+        assert_eq!(chip.flags[0], 1);
+        assert_eq!(chip.flags[1], 2);
+        assert_eq!(chip.flags[2], 5);
+    }
+
+    #[test]
+    fn test_op_5xy_rev() {
+        let mut chip = init_chip();
+
+        chip.memory[0] = 4;
+        chip.memory[1] = 5;
+        chip.memory[2] = 10;
+        chip.memory[3] = 8;
+
+        chip.op_5xy3(0x5033);
+
+        chip.op_5xy2(0x0302);
+
+        assert_eq!(chip.memory[0], 8);
+        assert_eq!(chip.memory[1], 10);
+        assert_eq!(chip.memory[2], 5);
+        assert_eq!(chip.memory[3], 4);
+    }
+
+    #[test]
+    fn test_op_5xy3() {
+        let mut chip = init_chip();
+
+        chip.memory[0] = 4;
+        chip.memory[1] = 5;
+        chip.memory[2] = 10;
+
+        chip.op_5xy3(0x5793);
+
+        assert_eq!(chip.register[7], 4);
+        assert_eq!(chip.register[8], 5);
+        assert_eq!(chip.register[9], 10);
+    }
+
+    #[test]
+    fn test_op_5xy2() {
+        let mut chip = init_chip();
+
+        chip.register[4] = 4;
+        chip.register[5] = 5;
+        chip.register[6] = 6;
+
+        chip.op_5xy2(0x0462);
+
+        assert_eq!(chip.memory[0], 4);
+        assert_eq!(chip.memory[1], 5);
+        assert_eq!(chip.memory[2], 6);
+        assert_eq!(chip.memory[3], 0);
     }
 
     #[test]
