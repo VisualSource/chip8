@@ -273,23 +273,29 @@ impl Chip8 {
                 0xE => self.op_ex9e(opcode),
                 _ => println!("[Table E] Unknown opcode: {:#04x}", opcode),
             },
-            0xF => match opcode & 0x00FF {
-                0x00 => self.op_f000(),
-                0x01 => self.op_fn01(opcode),
-                0x07 => self.op_fx07(opcode),
-                0x0A => self.op_fx0a(opcode),
-                0x15 => self.op_fx15(opcode),
-                0x18 => self.op_fx18(opcode),
-                0x1E => self.op_fx1e(opcode),
-                0x29 => self.op_fx29(opcode),
-                0x33 => self.op_fx33(opcode),
-                0x55 => self.op_fx55(opcode),
-                0x65 => self.op_fx65(opcode),
-                0x75 => self.op_fn75(opcode),
-                0x85 => self.op_fn85(opcode),
-                0x3A => self.op_fx3a(opcode),
-                _ => println!("[Table F] Unknown opcode: {:#04x}", opcode),
-            },
+            0xF => {
+                if opcode & 0x000F == 0x2 {
+                    return self.op_fnn2(opcode);
+                }
+
+                match opcode & 0x00FF {
+                    0x00 => self.op_f000(),
+                    0x01 => self.op_fn01(opcode),
+                    0x07 => self.op_fx07(opcode),
+                    0x0A => self.op_fx0a(opcode),
+                    0x15 => self.op_fx15(opcode),
+                    0x18 => self.op_fx18(opcode),
+                    0x1E => self.op_fx1e(opcode),
+                    0x29 => self.op_fx29(opcode),
+                    0x33 => self.op_fx33(opcode),
+                    0x55 => self.op_fx55(opcode),
+                    0x65 => self.op_fx65(opcode),
+                    0x75 => self.op_fn75(opcode),
+                    0x85 => self.op_fn85(opcode),
+                    0x3A => self.op_fx3a(opcode),
+                    _ => println!("[Table F] Unknown opcode: {:#04x}", opcode),
+                }
+            }
             _ => println!("Unknown opcode: {:#04x}", opcode),
         }
     }
@@ -608,27 +614,39 @@ impl Chip8 {
 
     /// save an inclusive range of registers to memory starting at i
     fn op_5xy2(&mut self, opcode: u16) {
+        use either::Either;
         let x = ((opcode & 0x0F00) >> 8) as usize;
         let y = ((opcode & 0x00F0) >> 4) as usize;
 
-        if x < y {
-            for (i, r) in (x..=y).enumerate() {
-                self.memory[(self.index as usize) + i] = self.register[r];
-            }
+        let res = if x < y {
+            Either::Left((x..=y).enumerate())
         } else {
-            for (i, r) in (y..=x).rev().enumerate() {
+            Either::Right((y..=x).rev().enumerate())
+        };
+
+        either::for_both!(res, s => {
+            for(i,r) in s {
                 self.memory[(self.index as usize) + i] = self.register[r];
             }
-        }
+
+        });
     }
     /// load an inclusive range of registers from memory starting at i.
     fn op_5xy3(&mut self, opcode: u16) {
         let x = ((opcode & 0x0F00) >> 8) as usize;
         let y = ((opcode & 0x00F0) >> 4) as usize;
 
-        for (i, r) in (x..=y).enumerate() {
-            self.register[r] = self.memory[(self.index as usize) + i];
-        }
+        let res = if x < y {
+            either::Either::Left((x..=y).enumerate())
+        } else {
+            either::Either::Right((y..=x).rev().enumerate())
+        };
+
+        either::for_both!(res,s=>{
+            for (i, r) in s {
+                self.register[r] = self.memory[(self.index as usize) + i];
+            }
+        });
     }
     /// save v0-vn to flag registers. (generalizing SCHIP).
     fn op_fn75(&mut self, opcode: u16) {
@@ -656,23 +674,37 @@ impl Chip8 {
         self.pc += 2;
     }
     /// select zero or more drawing planes by bitmask (0 <= n <= 3).
-    fn op_fn01(&mut self, opcode: u16) {}
+    fn op_fn01(&mut self, opcode: u16) {
+        unimplemented!("Opcode fn01 is not implemented: {}", opcode);
+    }
     /// store 16 bytes starting at i in the audio pattern buffer.
-    fn op_fnn2(&mut self, opcode: u16) {}
+    fn op_fnn2(&mut self, opcode: u16) {
+        unimplemented!("Opcode fnn2 is not implemented: {}", opcode);
+    }
     /// set the audio pattern playback rate to 4000*2^((vx-64)/48)Hz.
-    fn op_fx3a(&mut self, opcode: u16) {}
+    fn op_fx3a(&mut self, opcode: u16) {
+        unimplemented!("Opcode FX3A is not implemented: {}", opcode);
+    }
     /// scroll up the contents of the display up by 0-15 pixels.
-    fn op_00dn(&mut self, opcode: u16) {}
+    fn op_00dn(&mut self, opcode: u16) {
+        unimplemented!("Opcode 00DN is not implemented: {}", opcode);
+    }
 
     // SuperChip8 Extention
 
     /// Scroll display N lines down
-    fn op_00cn(&mut self, opcode: u16) {}
+    fn op_00cn(&mut self, opcode: u16) {
+        unimplemented!("Opcode 00CN is not implemented: {}", opcode);
+    }
 
     /// Scroll display 4 pixels right
-    fn op_00fb(&mut self) {}
+    fn op_00fb(&mut self) {
+        unimplemented!("Opcode 00FB is not implemented");
+    }
     /// Scroll display 4 pixels left
-    fn op_00fc(&mut self) {}
+    fn op_00fc(&mut self) {
+        unimplemented!("Opcode 00FCd is not implemented");
+    }
 }
 
 #[cfg(test)]
